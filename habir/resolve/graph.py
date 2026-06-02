@@ -45,7 +45,7 @@ def discover(target: Path) -> list[tuple[Path, Resolver, int]]:
         # default: treat unknown given file as a requirements file
         return [(target, requirements.resolve, 20)]
 
-    found: list[tuple[Path, object, int]] = []
+    found: list[tuple[Path, Resolver, int]] = []
     for name, resolver, rank in _MANIFESTS:
         if name == "requirements.txt":
             for p in sorted(target.glob("requirements*.txt")):

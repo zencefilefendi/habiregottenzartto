@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "habiregottenzartto"
+version = "0.1.0"
+description = "Deterministic, reachability-aware supply-chain intelligence engine"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Zencefil Efendi" }]
+keywords = ["sca", "security", "supply-chain", "sbom", "vex", "osv", "reachability"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+# Zero runtime dependencies by design: the tool that audits your supply chain
+# must not widen it. Everything (PEP 440, CVSS, OSV matching) is self-contained.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+habir = "habir.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/zencefilefendi/habiregottenzartto"
+Repository = "https://github.com/zencefilefendi/habiregottenzartto"
+Issues = "https://github.com/zencefilefendi/habiregottenzartto/issues"
+Changelog = "https://github.com/zencefilefendi/habiregottenzartto/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+packages = ["habir", "habir.core", "habir.resolve", "habir.vuln", "habir.mine",
+            "habir.analyze", "habir.report", "habir.data"]
+
+[tool.setuptools.package-data]
+"habir" = ["py.typed"]
+"habir.data" = ["seed/*.csv", "seed/*.json", "seed/*.txt",
+                "seed/osv/*.json", "seed/patches/*.patch"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Conservative, high-signal rule set: pycodestyle errors/warnings + pyflakes.
+select = ["E", "F", "W"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+# Advisory during 0.x — see CI (`type` job is non-blocking).

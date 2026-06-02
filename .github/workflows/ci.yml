@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install (zero runtime deps; only the test extra)
+        run: python -m pip install -e ".[dev]"
+      - name: Self-check (runs offline, no network)
+        run: |
+          python -m habir db sync
+          python -m habir mine
+          python -m habir scan examples/demo-project --fail-on critical
+      - name: Tests
+        run: python -m pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install ruff
+      - name: Ruff (E, F, W; line-length 100)
+        run: ruff check .
+
+  type:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # advisory during 0.x
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install mypy
+      - run: mypy habir

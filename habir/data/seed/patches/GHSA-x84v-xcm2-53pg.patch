@@ -1,0 +1,30 @@
+Representative fix patch for CVE-2018-18074 (requests credential leak on
+cross-scheme redirect). The vulnerable logic lives in INTERNAL redirect-handling
+methods (rebuild_auth / resolve_redirects), not in the public `get`/`request`
+API the caller uses. Mining yields those internal symbols, which lets the engine
+honestly report "package reachable, but the vulnerable function is not directly
+called by first-party code."
+
+diff --git a/requests/sessions.py b/requests/sessions.py
+index 1aaaaaa..2bbbbbb 100644
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -116,8 +116,12 @@ def rebuild_auth(self, prepared_request, response):
+         headers = prepared_request.headers
+         url = prepared_request.url
+
+-        if 'Authorization' in headers:
++        if 'Authorization' in headers and self.should_strip_auth(response.request.url, url):
++            # Strip the Authorization header on a cross-host redirect to avoid
++            # leaking credentials to an untrusted host (CVE-2018-18074).
+             del headers['Authorization']
+
+         new_auth = get_netrc_auth(url) if self.trust_env else None
+@@ -181,6 +185,9 @@ def resolve_redirects(self, resp, req, stream=False, timeout=None,
+         hist = []
+
++        url = self.get_redirect_target(resp)
++        previous_fragment = urlparse(req.url).fragment
+         while url:
+             prepared_request = req.copy()
+             yield resp

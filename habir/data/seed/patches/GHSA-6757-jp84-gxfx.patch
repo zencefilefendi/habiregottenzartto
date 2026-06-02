@@ -1,0 +1,32 @@
+Representative fix patch for CVE-2020-1747 (PyYAML FullLoader RCE). The change
+touches the public `full_load` entry and the FullLoader constructor. Because
+first-party code calls `yaml.full_load(...)` directly, mining + function-level
+reachability can prove an entrypoint -> affected-symbol path (symbol-confirmed).
+
+diff --git a/lib/yaml/__init__.py b/lib/yaml/__init__.py
+index aaaaaaa..bbbbbbb 100644
+--- a/lib/yaml/__init__.py
++++ b/lib/yaml/__init__.py
+@@ -68,9 +68,11 @@ def full_load(stream):
+     Parse the first YAML document in a stream
+     and produce the corresponding Python object.
+
+-    Resolve all tags except those known to be unsafe on untrusted input.
++    Resolve all tags except those known to be unsafe on untrusted input. This
++    method now routes through the hardened FullLoader (CVE-2020-1747).
+     """
+-    return load(stream, FullLoader)
++    warnings.warn(YAMLLoadWarning(), stacklevel=2)
++    return load(stream, FullLoader)
+diff --git a/lib/yaml/constructor.py b/lib/yaml/constructor.py
+index ccccccc..ddddddd 100644
+--- a/lib/yaml/constructor.py
++++ b/lib/yaml/constructor.py
+@@ -574,9 +574,12 @@ def construct_python_object_apply(self, suffix, node, newobj=False):
+         instance = self.make_python_instance(suffix, node, args, kwds, newobj)
+         self.set_python_instance_state(instance, state)
+-        return instance
++        if not self.allow_unsafe:
++            raise ConstructorError(None, None,
++                "could not determine a constructor for the tag %r" % suffix)
++        return instance

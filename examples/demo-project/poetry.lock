@@ -1,0 +1,103 @@
+# Demo poetry.lock — intentionally pins old, known-vulnerable versions so the
+# scanner has something real to find. Demonstrates: reachable vs unreachable
+# findings, transitive reachability, symbol-level hits, and a typosquat.
+
+[[package]]
+name = "requests"
+version = "2.19.1"
+description = "Python HTTP for Humans."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+urllib3 = ">=1.21.1,<1.25"
+certifi = ">=2017.4.17"
+chardet = ">=3.0.2,<3.1.0"
+idna = ">=2.5,<2.8"
+
+[[package]]
+name = "urllib3"
+version = "1.24.1"
+description = "HTTP library with thread-safe connection pooling."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "certifi"
+version = "2019.3.9"
+description = "Python package for providing Mozilla's CA Bundle."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "chardet"
+version = "3.0.4"
+description = "Universal encoding detector for Python 2 and 3."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "idna"
+version = "2.7"
+description = "Internationalized Domain Names in Applications (IDNA)."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "pyyaml"
+version = "5.1"
+description = "YAML parser and emitter for Python."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "jinja2"
+version = "2.10"
+description = "A small but fast and easy to use stand-alone template engine."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+MarkupSafe = ">=0.23"
+
+[[package]]
+name = "markupsafe"
+version = "1.1.1"
+description = "Safely add untrusted strings to HTML/XML markup."
+category = "main"
+optional = false
+python-versions = ">=2.7"
+
+[[package]]
+name = "reqests"
+version = "0.0.1"
+description = "(typosquat fixture — resembles 'requests')"
+category = "main"
+optional = false
+python-versions = "*"
+
+[metadata]
+lock-version = "1.1"
+python-versions = "^3.8"
+content-hash = "demo0000000000000000000000000000000000000000000000000000000000000000"
+
+[metadata.files]
+requests = [
+    {file = "requests-2.19.1.tar.gz", hash = "sha256:63b52e3c866428a224f97cab011de738c36aec0185aa91cfacd418b5d58911d1"},
+]
+pyyaml = [
+    {file = "PyYAML-5.1.tar.gz", hash = "sha256:436bc774ecf7c103814098159fbb84c2715d25980175292c648f2da143909f95"},
+]
+urllib3 = [
+    {file = "urllib3-1.24.1.tar.gz", hash = "sha256:de9529817c93f27c8ccbfead6985011db27bd0ddfcdb2d86f3f663385c6a9c22"},
+]
+jinja2 = [
+    {file = "Jinja2-2.10.tar.gz", hash = "sha256:f84be1bb0040caca4cea721fcbbbbd61f9be9464ca236387158b0feea01914a4"},
+]

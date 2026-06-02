@@ -1,0 +1,8 @@
+# EPSS snapshot — ILLUSTRATIVE seed values for offline demo only.
+# Real EPSS changes daily; `habir db sync` pulls the live FIRST.org feed.
+cve,epss,percentile
+CVE-2020-1747,0.061,0.78
+CVE-2020-14343,0.092,0.83
+CVE-2018-18074,0.028,0.66
+CVE-2019-10906,0.047,0.74
+CVE-2019-11324,0.011,0.49

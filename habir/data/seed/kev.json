@@ -1,0 +1,6 @@
+{
+  "_note": "Empty by design. None of the bundled demo CVEs are in the real CISA KEV catalog, and habiregottenzartto will not falsely stamp a CVE as actively-exploited. Run `habir db sync` to ingest the live CISA Known Exploited Vulnerabilities catalog. The KEV risk-floor logic is exercised by tests/test_risk.py with clearly-synthetic fixtures.",
+  "title": "CISA Known Exploited Vulnerabilities Catalog (seed placeholder)",
+  "catalogVersion": "seed-empty",
+  "vulnerabilities": []
+}

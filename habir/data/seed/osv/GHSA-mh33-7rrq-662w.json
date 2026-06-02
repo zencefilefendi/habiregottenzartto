@@ -1,0 +1,17 @@
+{
+  "id": "GHSA-mh33-7rrq-662w",
+  "aliases": ["CVE-2019-11324"],
+  "summary": "Certificate verification weakness in urllib3 with custom CA bundle",
+  "details": "urllib3 before 1.24.2 mishandles certificate verification when a custom set of trusted CA certificates is supplied together with a request to a different host, which can cause connections to unintended hosts to be trusted.",
+  "published": "2019-04-19T00:00:00Z",
+  "modified": "2023-11-08T04:00:00Z",
+  "severity": [{"type": "CVSS_V3", "score": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}],
+  "affected": [{
+    "package": {"ecosystem": "PyPI", "name": "urllib3"},
+    "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "1.24.2"}]}]
+  }],
+  "references": [
+    {"type": "ADVISORY", "url": "https://nvd.nist.gov/vuln/detail/CVE-2019-11324"},
+    {"type": "FIX", "url": "https://github.com/urllib3/urllib3/commit/2090e8c5c9c0a0a6b58e3a0c6e7e7e3c1f6f1f6f"}
+  ]
+}

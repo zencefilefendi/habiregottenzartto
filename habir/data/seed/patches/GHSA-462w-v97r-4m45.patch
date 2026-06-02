@@ -1,0 +1,21 @@
+Representative fix patch for CVE-2019-10906 (Jinja2 sandbox escape via
+str.format_map). The fix hardens the sandbox's format-handling. Jinja2 is not
+imported by the demo's first-party code, so this stays unreachable regardless.
+
+diff --git a/jinja2/sandbox.py b/jinja2/sandbox.py
+index eeeeeee..fffffff 100644
+--- a/jinja2/sandbox.py
++++ b/jinja2/sandbox.py
+@@ -394,8 +394,11 @@ def format_string(self, s, args, kwargs, format_func=None):
+         if isinstance(s, Markup):
+             formatter = SandboxedEscapeFormatter(self, escape=s.escape)
+         else:
+             formatter = SandboxedFormatter(self, escape=None)
+-        kwargs = _MagicFormatMapping(args, kwargs)
++        if format_func is not None and format_func.__name__ == "format_map":
++            if len(args) != 1 or kwargs:
++                raise TypeError("format_map() takes exactly one argument")
++            kwargs = args[0]
++            args = ()
+         rv = formatter.vformat(s, args, kwargs)
+         return rv

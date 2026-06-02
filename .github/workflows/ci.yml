@@ -41,7 +41,6 @@ jobs:
 
   type:
     runs-on: ubuntu-latest
-    continue-on-error: true   # advisory during 0.x
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

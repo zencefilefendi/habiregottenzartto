@@ -173,7 +173,8 @@ class _Collector:
             name = ref[1]
             b = self.bindings.get(name)
             if b and b.kind == "sym":
-                owner.external.add((b.dist, b.symbol))
+                if b.dist and b.symbol:
+                    owner.external.add((b.dist, b.symbol))
             elif b and b.kind == "fpsym":
                 owner.fp_targets.add(f"{b.fp_module}.{b.fp_name}")
             else:
@@ -186,7 +187,8 @@ class _Collector:
                 return
             b = self.bindings.get(base)
             if b and b.kind == "mod":
-                owner.external.add((b.dist, attr))
+                if b.dist and attr:
+                    owner.external.add((b.dist, attr))
             elif b and b.kind == "fpmod":
                 owner.fp_targets.add(f"{b.fp_module}.{attr}")
 

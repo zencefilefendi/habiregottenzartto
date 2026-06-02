@@ -11,10 +11,14 @@ from __future__ import annotations
 import json
 import tomllib
 from pathlib import Path
+from typing import Callable
 
 from ..core.model import DependencyGraph, ResolvedPackage
 from ..core.purl import normalize_pypi_name
 from . import pipfile, poetry, requirements, uvlock
+
+# A resolver maps a manifest path to the packages it declares.
+Resolver = Callable[[Path], list[ResolvedPackage]]
 
 # Errors a malformed manifest can realistically raise — caught so a single bad
 # file never aborts a scan.
@@ -22,7 +26,7 @@ _PARSE_ERRORS = (OSError, ValueError, KeyError, TypeError,
                  tomllib.TOMLDecodeError, json.JSONDecodeError)
 
 # (filename or glob, resolver, authority rank). Higher rank wins on conflict.
-_MANIFESTS = [
+_MANIFESTS: list[tuple[str, Resolver, int]] = [
     ("poetry.lock", poetry.resolve, 40),
     ("uv.lock", uvlock.resolve, 40),
     ("Pipfile.lock", pipfile.resolve, 35),
@@ -30,7 +34,7 @@ _MANIFESTS = [
 ]
 
 
-def discover(target: Path) -> list[tuple[Path, object, int]]:
+def discover(target: Path) -> list[tuple[Path, Resolver, int]]:
     """Find manifests under a directory (or accept a single manifest file)."""
     if target.is_file():
         for name, resolver, rank in _MANIFESTS:
@@ -96,7 +100,7 @@ def build_graph(packages: list[ResolvedPackage], *,
         graph.roots = declared_direct
     else:
         # Fall back to in-degree-0 nodes (nothing depends on them).
-        depended = set()
+        depended: set[str] = set()
         for pkg in graph.packages.values():
             depended.update(d for d in pkg.depends_on if d in names)
         graph.roots = names - depended

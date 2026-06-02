@@ -88,9 +88,9 @@ def collect_first_party_imports(source_root: Path) -> tuple[dict[str, _ImportInf
         # promotes the attribute to a used symbol — realistic symbol reachability.
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-                dist = alias_to_dist.get(node.value.id)
-                if dist:
-                    found.setdefault(dist, _ImportInfo()).symbols.add(node.attr)
+                mapped = alias_to_dist.get(node.value.id)
+                if mapped:
+                    found.setdefault(mapped, _ImportInfo()).symbols.add(node.attr)
     return found, scanned
 
 

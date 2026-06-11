@@ -11,15 +11,17 @@ v0.5 expansion that makes this a true Socket.dev-class signal.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..core.model import ResolvedPackage
 from ..data import top_packages
+from .behavior import analyze_package_behavior
 
 
 @dataclass(slots=True)
 class SupplyChainSignal:
     package: ResolvedPackage
-    kind: str            # "typosquat" | "dependency-confusion"
+    kind: str            # "typosquat" | "dependency-confusion" | "malicious-behavior"
     detail: str
     nearest: str | None  # the legitimate package it resembles
     distance: int
@@ -54,11 +56,27 @@ _ALLOWLIST = {
 }
 
 
-def analyze(packages: list[ResolvedPackage]) -> list[SupplyChainSignal]:
+def analyze(
+    packages: list[ResolvedPackage], deps_roots: list[Path] | None = None
+) -> list[SupplyChainSignal]:
     popular = set(top_packages())
     signals: list[SupplyChainSignal] = []
+    deps_roots = deps_roots or []
 
     for pkg in packages:
+        # 1. Behavioral Scan
+        behavior_findings = analyze_package_behavior(pkg, deps_roots)
+        if behavior_findings:
+            signals.append(SupplyChainSignal(
+                package=pkg,
+                kind="malicious-behavior",
+                detail=f"Suspicious AST patterns detected: {', '.join(behavior_findings)}",
+                nearest=None,
+                distance=0,
+                severity=0.95,
+            ))
+
+        # 2. Typosquat Scan
         name = pkg.name
         if name in popular or name in _ALLOWLIST or len(name) < 4:
             continue

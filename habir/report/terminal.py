@@ -37,6 +37,8 @@ class _Painter:
 def _reach_cell(f: Finding) -> tuple[str, str]:
     r = f.reachability
     if r.status == Reachability.REACHABLE:
+        if r.dynamic:
+            return ("REACH:DYN", _GREEN)
         if r.symbol_hit:
             return ("REACH:DEEP" if r.deep else "REACH:SYM", _GREEN)
         if r.proven_sink_unreachable:

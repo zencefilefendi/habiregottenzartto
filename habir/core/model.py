@@ -162,6 +162,7 @@ class ReachabilityResult:
     call_path: list[str] = field(default_factory=list)     # entrypoint → … → sink
     affected_fn_not_reached: bool = False  # package used, but vulnerable fn not called
     deep: bool = False                     # path confirmed through dependency internals
+    dynamic: bool = False                  # path confirmed at runtime (PEP-669/settrace)
     proven_sink_unreachable: bool = False  # dep call graph proves the sink is unreached
     analysis: str = "package-level"        # package-level | function-level | cross-package
 

@@ -57,6 +57,7 @@ class _Func:
     cls: str | None
     external: set[tuple[str, str]] = field(default_factory=set)  # (dist, symbol)
     fp_targets: set[str] = field(default_factory=set)            # resolved qualnames
+    local_aliases: dict[str, tuple[str, str, str | None]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -136,9 +137,10 @@ def _call_name(call: ast.Call):
 class _Collector:
     """Walks one module, attributing calls to their enclosing function/toplevel."""
 
-    def __init__(self, module: str, bindings: dict[str, _Binding]) -> None:
+    def __init__(self, module: str, bindings: dict[str, _Binding], imap: dict[str, str]) -> None:
         self.module = module
         self.bindings = bindings
+        self.imap = imap
         self.funcs: dict[str, _Func] = {}
         self.toplevel = _Func(qualname=f"{module}:<toplevel>", module=module, cls=None)
         self.public: list[str] = []
@@ -160,7 +162,18 @@ class _Collector:
                 self._walk(child, owner=owner, cls=child.name,
                            prefix=f"{prefix}.{child.name}")
             else:
-                if isinstance(child, ast.Call):
+                if isinstance(child, ast.Assign):
+                    if len(child.targets) == 1 and isinstance(child.targets[0], ast.Name):
+                        alias_name = child.targets[0].id
+                        if isinstance(child.value, ast.Name):
+                            owner.local_aliases[alias_name] = ("name", child.value.id, None)
+                        elif isinstance(child.value, ast.Attribute) and isinstance(
+                            child.value.value, ast.Name
+                        ):
+                            owner.local_aliases[alias_name] = (
+                                "attr", child.value.value.id, child.value.attr
+                            )
+                elif isinstance(child, ast.Call):
                     self._record_call(child, owner, cls)
                 self._walk(child, owner=owner, cls=cls, prefix=prefix)
 
@@ -168,7 +181,24 @@ class _Collector:
         ref = _call_name(call)
         if ref is None:
             return
+
+        # Dynamic imports
+        if (ref[0] == "name" and ref[1] == "__import__") or (
+            ref[0] == "attr" and ref[2] == "import_module"
+        ):
+            if call.args and isinstance(call.args[0], ast.Constant) and isinstance(
+                call.args[0].value, str
+            ):
+                top = call.args[0].value.split(".")[0]
+                dist = self.imap.get(top.lower(), normalize_pypi_name(top))
+                owner.external.add((dist, "<module>"))
+
+        # Resolve local aliases (e.g. req = requests.get)
         kind = ref[0]
+        if kind == "name" and ref[1] in owner.local_aliases:
+            ref = owner.local_aliases[ref[1]]
+            kind = ref[0]
+
         if kind == "name":
             name = ref[1]
             b = self.bindings.get(name)
@@ -217,7 +247,7 @@ def analyze_callgraph(source_root: Path, *, lib_mode: bool = False) -> CallGraph
         parsed_any = True
         module = _module_name(f, root)
         bindings = _resolve_imports(tree, module, firstparty_tops, imap)
-        col = _Collector(module, bindings)
+        col = _Collector(module, bindings, imap)
         col.run(tree)
         all_funcs.update(col.funcs)
         toplevels.append(col.toplevel)

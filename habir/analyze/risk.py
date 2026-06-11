@@ -58,7 +58,9 @@ def score_vulnerability(*, cvss_base: float | None, enrichment: Enrichment,
 
     # A confirmed affected-symbol use is the strongest exposure evidence we have:
     # promote it to full weight rather than the discounted "merely imported".
-    if reachability.symbol_hit:
+    if getattr(reachability, "dynamic", False):
+        exposure = 1.0
+    elif reachability.symbol_hit:
         exposure = 1.0
     elif reachability.proven_sink_unreachable:
         # The dependency's own call graph proves the vulnerable function is not
@@ -83,7 +85,10 @@ def score_vulnerability(*, cvss_base: float | None, enrichment: Enrichment,
         "confidence": round(conf, 4),
         "hazard": round(hazard, 4),
     }
-    if reachability.symbol_hit:
+    if getattr(reachability, "dynamic", False):
+        factors["dynamic_trace_confirmed"] = 1.0
+        factors["symbol_reached"] = 1.0
+    elif reachability.symbol_hit:
         factors["symbol_reached"] = 1.0
         if reachability.deep:
             factors["cross_package_path"] = 1.0

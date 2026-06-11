@@ -15,7 +15,7 @@ from typing import Callable
 
 from ..core.model import DependencyGraph, ResolvedPackage
 from ..core.purl import normalize_pypi_name
-from . import pipfile, poetry, requirements, uvlock
+from . import pipfile, poetry, pdm, requirements, uvlock
 
 # A resolver maps a manifest path to the packages it declares.
 Resolver = Callable[[Path], list[ResolvedPackage]]
@@ -27,6 +27,7 @@ _PARSE_ERRORS = (OSError, ValueError, KeyError, TypeError,
 
 # (filename or glob, resolver, authority rank). Higher rank wins on conflict.
 _MANIFESTS: list[tuple[str, Resolver, int]] = [
+    ("pdm.lock", pdm.resolve, 40),
     ("poetry.lock", poetry.resolve, 40),
     ("uv.lock", uvlock.resolve, 40),
     ("Pipfile.lock", pipfile.resolve, 35),

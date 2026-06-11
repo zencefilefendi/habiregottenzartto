@@ -58,8 +58,24 @@ def parse_requirement(text: str) -> ParsedRequirement | None:
     text = text.strip()
     if not text or text.startswith("#"):
         return None
-    if text.startswith("-") or "://" in text or text.startswith("."):
-        return None  # options, VCS/URL installs, local paths — out of scope here
+
+    # Handle VCS/URL installs with #egg=name (e.g. git+https://...#egg=requests)
+    if "://" in text or text.startswith(("git+", "hg+", "svn+", "bzr+")):
+        m = re.search(r'#egg=([A-Za-z0-9._-]+)', text)
+        if m:
+            name = m.group(1)
+            return ParsedRequirement(
+                name=name,
+                canonical=normalize_pypi_name(name),
+                specifier="",
+                extras=[],
+                marker=None,
+                hashes=[]
+            )
+        return None
+
+    if text.startswith("-") or text.startswith("."):
+        return None  # options, local paths — out of scope here
     m = _REQ_RE.match(text)
     if not m:
         return None

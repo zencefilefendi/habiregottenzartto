@@ -40,7 +40,11 @@ def _reach_node(reach: ReachabilityResult) -> EvidenceNode:
     source = (f"{reach.analysis} analysis" if reach.analysis != "package-level"
               else "import-graph closure")
     if reach.status == Reachability.REACHABLE:
-        if reach.symbol_hit and reach.deep and reach.call_path:
+        if getattr(reach, "dynamic", False):
+            detail = ("runtime execution confirms vulnerable function is called: " +
+                      ", ".join(reach.call_path))
+            conf = 1.00
+        elif reach.symbol_hit and reach.deep and reach.call_path:
             detail = ("cross-package path reaches the vulnerable function through "
                       "dependency internals: " + " → ".join(reach.call_path))
             conf = 0.98

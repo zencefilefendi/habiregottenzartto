@@ -13,6 +13,13 @@ import csv
 import hashlib
 import json
 import sqlite3
+import urllib.request
+import urllib.error
+import zipfile
+import gzip
+import io
+import sys
+import ssl
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -62,6 +69,15 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 """
 
+def _open_url(req):
+    try:
+        return urllib.request.urlopen(req)
+    except urllib.error.URLError as e:
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            ctx = ssl._create_unverified_context()
+            print("Warning: SSL verification failed, bypassing (common on macOS).", file=sys.stderr)
+            return urllib.request.urlopen(req, context=ctx)
+        raise
 
 class VulnStore:
     def __init__(self, path: Path = DEFAULT_DB_PATH) -> None:
@@ -126,6 +142,121 @@ class VulnStore:
         }
         if skipped:
             snapshot["skipped_files"] = len(skipped)
+        for k, v in snapshot.items():
+            cur.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)", (k, str(v)))
+        self.conn.commit()
+        return snapshot
+
+    def sync_from_upstream(self) -> dict:
+        """Download live OSV (PyPI), EPSS, and KEV directly from upstreams."""
+        cur = self.conn.cursor()
+        cur.execute("DELETE FROM vulns")
+        cur.execute("DELETE FROM affects")
+        cur.execute("DELETE FROM epss")
+        cur.execute("DELETE FROM kev")
+        cur.execute("DELETE FROM mined_symbols")
+
+        digest = hashlib.sha256()
+        record_count = 0
+
+        # OSV PyPI
+        print("Downloading OSV PyPI mirror...", file=sys.stderr)
+        req = urllib.request.Request(
+            "https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip",
+            headers={"User-Agent": "habiregottenzartto/0.1.0"},
+        )
+        with _open_url(req) as resp:
+            with zipfile.ZipFile(io.BytesIO(resp.read())) as zf:
+                for name in zf.namelist():
+                    if not name.endswith(".json"):
+                        continue
+                    try:
+                        raw = json.loads(zf.read(name).decode("utf-8"))
+                        vid = raw.get("id", "")
+                        if not vid:
+                            continue
+                        cur.execute(
+                            "INSERT OR REPLACE INTO vulns(id, modified, data) VALUES (?,?,?)",
+                            (vid, raw.get("modified"), json.dumps(raw, sort_keys=True)),
+                        )
+                        for aff in raw.get("affected", []) or []:
+                            pkg = aff.get("package", {}) or {}
+                            eco = pkg.get("ecosystem", "")
+                            pname = pkg.get("name", "")
+                            canon = (
+                                normalize_pypi_name(pname)
+                                if eco.lower().startswith("pypi")
+                                else pname.lower()
+                            )
+                            cur.execute(
+                                "INSERT INTO affects(vuln_id, ecosystem, name) VALUES (?,?,?)",
+                                (vid, eco, canon),
+                            )
+                        digest.update(vid.encode())
+                        digest.update((raw.get("modified") or "").encode())
+                        record_count += 1
+                    except json.JSONDecodeError:
+                        continue
+
+        # EPSS
+        print("Downloading EPSS scores...", file=sys.stderr)
+        epss_count = 0
+        req = urllib.request.Request(
+            "https://epss.cyentia.com/epss_scores-current.csv.gz",
+            headers={"User-Agent": "habiregottenzartto/0.1.0"},
+        )
+        try:
+            with _open_url(req) as resp:
+                with gzip.GzipFile(fileobj=io.BytesIO(resp.read())) as gz:
+                    lines = (line.decode("utf-8") for line in gz)
+                    reader = csv.DictReader(row for row in lines if not row.startswith("#"))
+                    for row in reader:
+                        cve = (row.get("cve") or row.get("CVE") or "").upper()
+                        if not cve:
+                            continue
+                        try:
+                            score = float(row.get("epss", 0) or 0)
+                            pct = float(row.get("percentile", 0) or 0)
+                        except (TypeError, ValueError):
+                            continue
+                        cur.execute(
+                            "INSERT OR REPLACE INTO epss(cve, score, percentile) VALUES (?,?,?)",
+                            (cve, score, pct),
+                        )
+                        epss_count += 1
+        except Exception as e:
+            print(f"Warning: Failed to download EPSS: {e}", file=sys.stderr)
+
+        # KEV
+        print("Downloading CISA KEV...", file=sys.stderr)
+        kev_count = 0
+        req = urllib.request.Request(
+            "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+            headers={"User-Agent": "habiregottenzartto/0.1.0"},
+        )
+        try:
+            with _open_url(req) as resp:
+                doc = json.loads(resp.read().decode("utf-8"))
+                for entry in doc.get("vulnerabilities", []) or []:
+                    cve = (entry.get("cveID") or "").upper()
+                    if not cve:
+                        continue
+                    cur.execute(
+                        "INSERT OR REPLACE INTO kev(cve, date_added) VALUES (?,?)",
+                        (cve, entry.get("dateAdded")),
+                    )
+                    kev_count += 1
+        except Exception as e:
+            print(f"Warning: Failed to download KEV: {e}", file=sys.stderr)
+
+        snapshot = {
+            "source": "live",
+            "synced_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "content_hash": "sha256:" + digest.hexdigest()[:32],
+            "record_count": record_count,
+            "epss_count": epss_count,
+            "kev_count": kev_count,
+        }
         for k, v in snapshot.items():
             cur.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)", (k, str(v)))
         self.conn.commit()

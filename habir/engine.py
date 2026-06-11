@@ -19,6 +19,7 @@ from .analyze import callgraph as cg_mod
 from .analyze import reachability as reach_mod
 from .analyze import risk as risk_mod
 from .analyze import supply_chain as sc_mod
+from .analyze import dynamic as dyn_mod
 from .analyze.deepreach import DepReachability
 from .core.model import (DependencyGraph, Finding, FindingKind, ReachabilityResult,
                          ScanManifest)
@@ -98,7 +99,8 @@ def _apply_deep(reach, dist: str, symbols: list[str],
 
 
 def scan(target: Path, store: VulnStore,
-         deps_roots: list[Path] | None = None) -> ScanResult:
+         deps_roots: list[Path] | None = None,
+         dynamic_trace_path: Path | None = None) -> ScanResult:
     target = Path(target)
     graph, manifests_used = resolve_target(target)
 
@@ -106,6 +108,10 @@ def scan(target: Path, store: VulnStore,
     reach_map = reach_mod.analyze(graph, source_root)
     callgraph = cg_mod.analyze_callgraph(source_root)
     deps = DepReachability(_discover_deps_paths(source_root, deps_roots))
+
+    dynamic_trace = {}
+    if dynamic_trace_path and dynamic_trace_path.exists():
+        dynamic_trace = dyn_mod.load_trace(dynamic_trace_path)
 
     findings: list[Finding] = []
 
@@ -125,6 +131,11 @@ def scan(target: Path, store: VulnStore,
             # Cross-package refinement: if first-party reaches the package but not
             # the sink, descend into the dependency's own source (when available).
             _apply_deep(reach, pkg.name, symbols, callgraph, deps)
+            # Dynamic runtime refinement: if a runtime trace was provided, use it
+            # to gain 100% confidence.
+            if dynamic_trace:
+                reach = dyn_mod.refine_with_trace(reach, pkg.name, symbols, dynamic_trace)
+
             enrichment = store.enrichment_for(vuln)
             cvss = vuln.best_cvss()
             risk = risk_mod.score_vulnerability(
@@ -147,7 +158,8 @@ def scan(target: Path, store: VulnStore,
 
     # --- supply-chain heuristics ------------------------------------------ #
     direct_pkgs = [p for p in graph if p.direct]
-    for signal in sc_mod.analyze(direct_pkgs):
+    deps_paths = _discover_deps_paths(source_root, deps_roots)
+    for signal in sc_mod.analyze(direct_pkgs, deps_roots=deps_paths):
         reach = reach_map.get(signal.package.name, ReachabilityResult())
         risk = risk_mod.score_supply_chain(
             severity=signal.severity, reachability=reach,
